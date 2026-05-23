@@ -21,6 +21,8 @@ if (keystorePropertiesFile.exists()) {
 
 def flutterVersionCode = localProperties.getProperty('flutter.versionCode') ?: '1'
 def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '1.0'
+def requestedTaskNames = gradle.startParameter.taskNames*.toLowerCase()
+def isDebugBuildRequested = requestedTaskNames.any { it.contains('debug') }
 
 
 android {
@@ -53,23 +55,28 @@ android {
         //setProperty("archivesBaseName", "app-release-renamed")
     }
     signingConfigs {
-          release {
-              if (System.getenv()["CI"]) { // CI=true is exported by Codemagic2
-                  storeFile file(System.getenv()["CM_KEYSTORE_PATH"])
-                  storePassword System.getenv()["CM_KEYSTORE_PASSWORD"]
-                  keyAlias System.getenv()["CM_KEY_ALIAS"]
-                  keyPassword System.getenv()["CM_KEY_PASSWORD"]
-            } else {
-                def storePath = keystoreProperties['storeFile']
-                if (storePath) {
+        release {
+            if (!isDebugBuildRequested) {
+                if (System.getenv()["CI"]) { // CI=true is exported by Codemagic2
+                    def storePath = System.getenv()["CM_KEYSTORE_PATH"]
+                    if (!storePath) {
+                        throw new GradleException("CM_KEYSTORE_PATH is not set")
+                    }
                     storeFile file(storePath)
-                    storePassword keystoreProperties['storePassword']
-                    keyAlias keystoreProperties['keyAlias']
-                    keyPassword keystoreProperties['keyPassword']
+                    storePassword System.getenv()["CM_KEYSTORE_PASSWORD"]
+                    keyAlias System.getenv()["CM_KEY_ALIAS"]
+                    keyPassword System.getenv()["CM_KEY_PASSWORD"]
+                } else {
+                    def storePath = keystoreProperties['storeFile']
+                    if (storePath) {
+                        storeFile file(storePath)
+                        storePassword keystoreProperties['storePassword']
+                        keyAlias keystoreProperties['keyAlias']
+                        keyPassword keystoreProperties['keyPassword']
+                    }
                 }
-          }
-
-      }
+            }
+        }
     }
 
     buildTypes {
